@@ -3,164 +3,209 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>最小活世界 — 生態 + 角色求生</title>
+<title>最小活世界 — 2D 側視(泰拉瑞亞式)</title>
 <style>
   :root{--bg:#0e1116;--fg:#e6e6e6;--mut:#8a93a0;--acc:#4da3ff;--good:#46c46a;--bad:#ff5d5d;--bd:#2c3a4e}
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;user-select:none}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-    font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;-webkit-tap-highlight-color:transparent}
+    font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;-webkit-tap-highlight-color:transparent;overflow:hidden}
   #wrap{display:flex;flex-direction:column;height:100%}
-  header{padding:6px 11px;border-bottom:1px solid #222a35}
-  header h1{margin:0;font-size:14px;font-weight:700}
-  header p{margin:2px 0 0;font-size:10.5px;color:var(--mut)}
-  #hud{display:flex;flex-wrap:wrap;gap:5px 12px;padding:6px 11px;font-size:11.5px;border-bottom:1px solid #222a35;align-items:center}
+  header{padding:5px 10px;border-bottom:1px solid #222a35}
+  header h1{margin:0;font-size:13px;font-weight:700}
+  header p{margin:1px 0 0;font-size:10px;color:var(--mut)}
+  #hud{display:flex;flex-wrap:wrap;gap:4px 10px;padding:5px 10px;font-size:11px;border-bottom:1px solid #222a35;align-items:center}
   #hud b{color:var(--acc);font-variant-numeric:tabular-nums}.cons{color:var(--good)}
-  #satwrap{width:120px;height:11px;background:#1a2230;border-radius:6px;overflow:hidden;border:1px solid var(--bd)}
+  #satwrap{width:90px;height:10px;background:#1a2230;border-radius:5px;overflow:hidden;border:1px solid var(--bd)}
   #sat{height:100%;background:var(--good);width:50%}
   #stage{flex:1;position:relative;overflow:hidden;min-height:0}
-  canvas{display:block;width:100%;height:100%;touch-action:none}
-  #info{position:absolute;left:9px;bottom:9px;font-size:10.5px;color:var(--mut);
-    background:rgba(14,17,22,.72);border:1px solid #222a35;border-radius:8px;padding:5px 8px;max-width:72%}
-  .sbtn{font:inherit;font-size:11px;background:#1a2230;color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:3px 9px;cursor:pointer}
-  .sbtn.on{background:#1f6feb;color:#fff;border-color:#1f6feb}
+  canvas{display:block;width:100%;height:100%;touch-action:none;image-rendering:pixelated}
+  #pad{display:flex;gap:6px;padding:7px 10px;border-top:1px solid #222a35;flex-wrap:wrap;justify-content:center}
+  .k{font:inherit;font-size:15px;font-weight:700;background:#1a2230;color:var(--fg);border:1px solid var(--bd);
+     border-radius:9px;padding:9px 13px;cursor:pointer;min-width:44px}
+  .k:active{background:#1f6feb;color:#fff}
+  #msg{position:absolute;left:8px;top:8px;font-size:10.5px;color:var(--mut);background:rgba(14,17,22,.7);
+    border:1px solid #222a35;border-radius:7px;padding:4px 7px;max-width:80%}
   #dead{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
-    background:rgba(14,17,22,.78);font-size:18px;color:var(--bad);gap:10px}
+    background:rgba(14,17,22,.8);font-size:18px;color:var(--bad);gap:10px}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
-    <h1>最小活世界 · 生態 + 角色求生</h1>
-    <p>會呼吸的生態(植物隨日照長/枯)+ 角色靠採集進食求生。能量太陽→世界→太空穿流、物質循環,總帳恆定=守恆。</p>
+    <h1>最小活世界 · 2D 側視（泰拉瑞亞式）</h1>
+    <p>太陽從上(地表亮/地下暗)·重力向下(沙會塌)·地表草會長·挖方塊進背包(總量守恆)·餓了吃草。</p>
   </header>
   <div id="hud">
     <span>晝夜 <b id="clock">日</b></span>
     <span>飽足</span><div id="satwrap"><div id="sat"></div></div>
     <span>背包 <b id="bag">0</b></span>
-    <span>能量帳 <b id="eledger" class="cons">—</b></span>
-    <span>物質帳 <b id="mledger" class="cons">—</b></span>
-    <button class="sbtn on" id="auto">自動求生</button>
-    <button class="sbtn" id="combineBtn">合成前兩格</button>
-    <button class="sbtn" id="reset">↻</button>
+    <span>世界方塊帳 <b id="ledger" class="cons">—</b></span>
   </div>
   <div id="stage">
     <canvas id="cv"></canvas>
-    <div id="info">綠=植物(生態在長);◉=角色。自動求生中——餓了會自己找植物吃。點任一格=指揮角色走過去採集。看上方總帳:全程恆定。</div>
-    <div id="dead"><div>角色餓死了 ☠</div><button class="sbtn" id="respawn">重新開始</button></div>
+    <div id="msg">← → 走 · ↑ 跳 · 挖(朝向/下) · 採草 · 吃 · 合成。挖出的方塊進背包,世界對應變少——總方塊帳恆定=守恆。</div>
+    <div id="dead"><div>餓死了 ☠</div><button class="k" id="respawn">重新開始</button></div>
+  </div>
+  <div id="pad">
+    <button class="k" id="bL">←</button><button class="k" id="bJ">↑跳</button><button class="k" id="bR">→</button>
+    <button class="k" id="bDig">⛏挖</button><button class="k" id="bGr">🌿採</button>
+    <button class="k" id="bEat">🍖吃</button><button class="k" id="bCraft">✦合成</button>
   </div>
 </div>
 <script>
-// 最小活世界(JS 鏡像 verified Python living_world:生態循環+太陽穿流+採集/合成+角色求生,皆守恆)。
-// ★Python(living_world/eco/creation_engine) 為驗證過真值;此為可摸的窗口。
-const E=0,ST=1,D=2,S=3,R=4,L=5;
-const clamp01=x=>x<0?0:x>1?1:x, V=(...a)=>a.map(clamp01);
-const SEEDS={"水":V(.3,.15,.5,.5,.3,.3),"火":V(.8,.05,.15,.85,.8,.4),"土":V(.22,.42,.58,.05,.18,.22),
- "石":V(.22,.78,.4,.05,.08,.18),"氣":V(.42,.05,.1,.78,.32,.5),"光":V(.7,.05,.05,.88,.22,.88)};
-// 合成:14 規則(移植自 creation_engine_v2),條件用屬性=P0
-const mx=(a,b,i)=>Math.max(a[i],b[i]),mn=(a,b,i)=>Math.min(a[i],b[i]),av=(a,b,i)=>(a[i]+b[i])/2;
-const RULES=[
- ["電漿",(a,b)=>{if(mx(a,b,E)>.7&&mx(a,b,L)>.45&&mn(a,b,S)>.72&&mx(a,b,R)>.55&&mx(a,b,D)<.2)return V(.97,0,.05,1,.9,1);}],
- ["玻璃",(a,b)=>{if(mx(a,b,E)>.68&&mn(a,b,E)<.45){const lo=a[E]<=b[E]?a:b;if(lo[ST]>.75&&lo[D]>.35&&lo[S]<.2)return V(.4,.2,lo[D]+.05,0,lo[R]-.05,lo[L]+.3);}}],
- ["淬火",(a,b)=>{for(const[h,c]of[[a,b],[b,a]])if(h[E]>.62&&h[ST]>.6&&c[E]<.4&&c[S]>=.35&&c[S]<=.7)return V(.25,Math.min(.95,h[ST]+.1),h[D]+.08,0,h[R]-.15,h[L]-.05);}],
- ["燒結",(a,b)=>{if(mx(a,b,E)>.65&&mn(a,b,E)<.5){const lo=a[E]<=b[E]?a:b;if(lo[ST]>=.3&&lo[ST]<=.7&&lo[D]>.5&&lo[S]<.25&&lo[R]<.4)return V(.3,Math.min(.8,lo[ST]+.3),lo[D]+.1,0,lo[R]-.1,lo[L]+.05);}}],
- ["汽化",(a,b)=>{for(const[h,v]of[[a,b],[b,a]])if(h[E]>.65&&v[S]>.4&&v[D]<.6)return V(v[E]-.3,v[ST],.1,1,v[R]+.05,v[L]);}],
- ["泥化",(a,b)=>{for(const[l,s]of[[a,b],[b,a]])if(l[S]>=.35&&l[S]<=.7&&l[ST]<.35&&s[S]<.25&&s[ST]<.5&&s[D]>=.4&&s[D]<=.75)return V(av(a,b,E)*.7,Math.min(.5,av(a,b,ST)+.12),av(a,b,D)*.9,.15,av(a,b,R)*.7,mn(a,b,L));}],
- ["冷凝",(a,b)=>{if(mn(a,b,E)<.35&&mx(a,b,D)>=.4&&mx(a,b,D)<=.75&&mx(a,b,S)>.75&&mx(a,b,L)<.55)return V(.25,.15,.55,.5,.25,av(a,b,L));}],
-];
-function react(a,b){for(const[n,f]of RULES){const o=f(a,b);if(o)return[n,o];}return["混成",V(...[0,1,2,3,4,5].map(k=>av(a,b,k)))];}
-function describe(v){const t=[];t.push(v[E]>.66?"灼熱":v[E]>.33?"溫":"冰冷");t.push(v[S]>.7?"氣":v[S]>.3?"液":"固");if(v[ST]>.6)t.push("硬");if(v[R]>.6)t.push("易燃");return t.join("·");}
+// 2D 側視最小活世界(鏡像 verified Python:守恆+生態+採集/合成;這裡空間=泰拉瑞亞式側視、重力向下、太陽從上)。
+const Wc=48, Hc=34;            // 世界格寬高
+const SKY=8;                   // 上方天空列數
+const AIR=0;                   // 空氣(無方塊)
+// 方塊種類:每種一個質量(方塊帳)+顏色。GRASS=地表土長草(可採)。
+const T={ air:0, 土:1, 石:2, 礦:3, 沙:4, 水:5, 火:6, 草:7 };
+const MASS={1:1,2:1,3:1,4:1,5:1,6:1,7:0};   // 草(生物量另計);其餘每塊質量1
+const COL={1:"#6b4a2f",2:"#6a6f78",3:"#caa24a",4:"#cbb56a",5:"#2f6bd6",6:"#ff5a28",7:"#3aa55a"};
+const FALL={4:1,5:1};          // 沙/水 受重力會掉
+let g=[], frame=0, bag=[], P=null, paused=false, M0=0;
 
-// 世界:六角(尖頂),每格 amounts{土石水火植枯}。生態(土↔植↔枯,太陽驅動)。
-const RAD=6,DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
-const KIND={"土":SEEDS["土"],"植":V(.32,.30,.58,.55,.45,.55),"枯":V(.18,.25,.58,.10,.30,.30),"石":SEEDS["石"],"水":SEEDS["水"],"火":SEEDS["火"]};
-const KER={},KD={};for(const k in KIND){KER[k]=KIND[k][E]+KIND[k][R];KD[k]=KIND[k][D];}
-const GROW=.4,KN=3,MAXB=9,RESP=.045,DECOMP=.05,SUN=.05,LAT=6,DAY=600;
-let W={},frame=0,sunGiven=0,released=0,bag=[],ag=null,paused=false,auto=true,M0=0,S0=0;
+function key(x,y){return y*Wc+x;}
+function inb(x,y){return x>=0&&x<Wc&&y>=0&&y<Hc;}
+function get(x,y){return inb(x,y)?g[key(x,y)]:{k:T.石};}     // 界外當實心
+function solid(x,y){const c=get(x,y);return c.k!==AIR;}
 
-function build(){ W={};frame=0;sunGiven=0;released=0;bag=[];
- for(let q=-RAD;q<=RAD;q++)for(let r=-RAD;r<=RAD;r++){ if(Math.abs(q+r)>RAD)continue;
-   const c={"土":8+4*Math.random(),"石":2+3*Math.random(),"水":1+2*Math.random(),"火":0,"植":0,"枯":0};
-   if(Math.abs(r)<=3&&Math.random()<.5)c["植"]=1+Math.random()*2;
-   if(Math.random()<.05)c["火"]=5+3*Math.random();
-   W[q+","+r]=c; }
- ag={q:0,r:0,sat:50,alive:true};
- M0=matter();S0=superE(); document.getElementById("dead").style.display="none";
+function gen(){
+  g=new Array(Wc*Hc); bag=[]; frame=0;
+  // 地表線(起伏)
+  const surf=[]; let h=SKY+6;
+  for(let x=0;x<Wc;x++){ h+=(Math.random()<.5?-1:1)*(Math.random()<.35?1:0); h=Math.max(SKY+3,Math.min(SKY+10,h)); surf[x]=h; }
+  for(let y=0;y<Hc;y++)for(let x=0;x<Wc;x++){
+    let k=AIR, b=0, n=0;
+    if(y>surf[x]){ k=T.土; if(y>surf[x]+6) k=T.石; if(k===T.石&&Math.random()<.06)k=T.礦; }
+    else if(y===surf[x]){ k=T.草; b=0.3+0.5*Math.random(); n=4; }   // 地表土=草(含生物量+養分)
+    // 礦穴/水/火 點綴
+    if(k===T.石&&Math.random()<.04)k=AIR;
+    if(k===T.土&&y>surf[x]+1&&Math.random()<.03)k=T.水;
+    if(k===T.石&&y>SKY+16&&Math.random()<.015)k=T.火;
+    g[key(x,y)]={k,b,n};
+  }
+  // 角色放地表中央上方
+  let sx=Wc>>1; P={x:sx,y:surf[sx]-1,sat:55,alive:true,vy:0,face:1};
+  M0=ledger(); document.getElementById("dead").style.display="none";
 }
-const cells=()=>Object.keys(W);
-const nbrs=(q,r)=>DIRS.map(([dq,dr])=>(q+dq)+","+(r+dr)).filter(k=>W[k]);
-function sunAt(r){const lat=Math.max(0,1-Math.abs(r)/LAT),ph=(frame%DAY)/DAY;return SUN*lat*Math.max(0,1-2*Math.abs(ph-.5));}
-function matter(){let m=0;for(const k in W)for(const x in W[k])m+=KD[x]*W[k][x];for(const b of bag)m+=b.v[D]*b.amt;return m;}
-function worldE(){let e=0;for(const k in W)for(const x in W[k])e+=KER[x]*W[k][x];for(const b of bag)e+=(b.v[E]+b.v[R])*b.amt;return e;}
-function superE(){return worldE()+(ag?ag.sat:0)-sunGiven+released;}
+// 方塊帳 = 世界非空氣格數 + 背包「方塊」數(食物=可再生地表生命,不計)。挖塊→背包、放回、重力搬移 都恆定。
+function ledger(){ let m=0; for(const c of g){ if(c&&c.k!==AIR) m+=1; } for(const it of bag){ if(!it.food) m+=it.amt; } return m; }
+function bagCount(){ return bag.length; }
 
+// 太陽:每欄從上往下,遇實心衰減 → 光(地表亮、地下暗)
+let light=[];
+function calcLight(){
+  light=new Array(Wc*Hc).fill(0);
+  const ph=(frame%900)/900, day=Math.max(.15,1-2*Math.abs(ph-.5));   // 晝夜
+  for(let x=0;x<Wc;x++){ let l=day;
+    for(let y=0;y<Hc;y++){ light[key(x,y)]=l; if(solid(x,y)) l*=0.55; else l*=0.96; l=Math.max(0,l); } }
+}
+
+// 重力:沙/水 由下往上掃,落入下方空氣(方塊只搬不生→守恆)
+function gravityStep(){
+  for(let y=Hc-2;y>=0;y--)for(let x=0;x<Wc;x++){
+    const c=g[key(x,y)]; if(!c||!FALL[c.k])continue;
+    if(get(x,y+1).k===AIR){ g[key(x,y+1)]=c; g[key(x,y)]={k:AIR,b:0,n:0}; }
+    else if(c.k===T.水){ // 水會往側邊流
+      const d=Math.random()<.5?-1:1;
+      if(get(x+d,y+1).k===AIR){g[key(x+d,y+1)]=c;g[key(x,y)]={k:AIR,b:0,n:0};}
+      else if(get(x+d,y).k===AIR){g[key(x+d,y)]=c;g[key(x,y)]={k:AIR,b:0,n:0};}
+    }
+  }
+}
+// 生態:草(地表、有光)生長(養分→生物量)、播種鄰格地表土、過密則枯回養分。守恆(養分↔生物量)。
 function ecoStep(){
- for(const k in W){const[q,r]=k.split(",").map(Number),c=W[k],s=sunAt(r);let N=c["土"],B=c["植"],Dd=c["枯"];
-   let g=Math.min(GROW*s*(N/(N+KN))*(1-B/MAXB)*(B+.15),N); B+=g;N-=g;sunGiven+=g*(KER["植"]-KER["土"]);
-   let rp=RESP*B;B-=rp;Dd+=rp;released+=rp*(KER["植"]-KER["枯"]);
-   let dc=DECOMP*Dd;Dd-=dc;N+=dc;released+=dc*(KER["枯"]-KER["土"]);
-   c["土"]=N;c["植"]=B;c["枯"]=Dd; }
- const mv=[];for(const k in W){const[q,r]=k.split(",").map(Number);if(W[k]["植"]>5){const ns=nbrs(q,r);if(ns.length){const t=ns.reduce((a,b)=>W[a]["植"]<W[b]["植"]?a:b);if(W[t]["植"]<W[k]["植"])mv.push([k,t,Math.min(.6,W[k]["植"]*.1)]);}}}
- for(const[s,t,a]of mv){W[s]["植"]-=a;W[t]["植"]+=a;}
+  for(let x=0;x<Wc;x++)for(let y=0;y<Hc;y++){
+    const c=g[key(x,y)]; if(!c)continue;
+    if(c.k===T.草){ const s=light[key(x,y)];
+      c.b += 0.02*s*(1-c.b/1.2); c.b -= 0.004*c.b;                    // 草:太陽長、自然凋(可再生地表生命)
+      // 播種:鄰格若是裸土(上方空氣、曬得到)→ 變草(土→草仍是1格,方塊帳不變)
+      if(c.b>0.8){ for(const dx of [1,-1]){ const nb=get(x+dx,y);
+        if(nb.k===T.土&&get(x+dx,y-1).k===AIR&&(nb.b||0)<0.05){ nb.k=T.草; nb.b=0.1; c.b-=0.05; } } }
+    }
+  }
 }
-function gather(kind,amt){const k=ag.q+","+ag.r,c=W[k];if(!c||c[kind]<=0)return;const take=Math.min(amt,c[kind]);c[kind]-=take;
- const ex=bag.find(b=>b.name===kind);if(ex)ex.amt+=take;else bag.push({name:kind,v:KIND[kind].slice(),amt:take});}
-function eat(i){const f=bag[i];if(!f)return;const ef=(f.v[E]+f.v[R])*f.amt,mf=f.v[D]*f.amt,wa=mf/KD["枯"],gain=ef-KER["枯"]*wa;
- W[ag.q+","+ag.r]["枯"]+=wa; bag.splice(i,1); ag.sat+=gain;}
-function combine(){ if(bag.length<2)return; const A=bag[0],B=bag[1],amt=Math.min(A.amt,B.amt);
- const[n,v]=react(A.v,B.v); A.amt-=amt;B.amt-=amt; bag=bag.filter(b=>b.amt>1e-9);
- bag.push({name:n,v:v,amt:amt}); document.getElementById("info").textContent="合成出 "+n+"("+describe(v)+")";}
-function agentTick(){ if(!ag.alive)return;
- if(auto){ const c=W[ag.q+","+ag.r]; const fi=bag.findIndex(b=>(b.v[E]+b.v[R])>.6);
-   if(ag.sat<60&&fi>=0)eat(fi);
-   else if(c["植"]>.5)gather("植",Math.min(4,c["植"]));
-   else{ // 朝最近最多植走
-     let best=null,bv=-1;for(const k in W){if(W[k]["植"]>bv){bv=W[k]["植"];best=k;}}
-     const[bq,br]=best.split(",").map(Number),ns=nbrs(ag.q,ag.r);
-     if(ns.length){const t=ns.reduce((a,b)=>(Math.abs(a.split(",")[0]-bq)+Math.abs(a.split(",")[1]-br))<(Math.abs(b.split(",")[0]-bq)+Math.abs(b.split(",")[1]-br))?a:b);
-       const[tq,tr]=t.split(",").map(Number);ag.q=tq;ag.r=tr;ag.sat-=.02;released+=.02;} } }
- else if(ag.tgt){ const ns=nbrs(ag.q,ag.r); if(ns.length){const[tq,tr]=ag.tgt;
-   const t=ns.reduce((a,b)=>(Math.abs(a.split(",")[0]-tq)+Math.abs(a.split(",")[1]-tr))<(Math.abs(b.split(",")[0]-tq)+Math.abs(b.split(",")[1]-tr))?a:b);
-   const[nq,nr]=t.split(",").map(Number);ag.q=nq;ag.r=nr;ag.sat-=.02;released+=.02;}
-   const c=W[ag.q+","+ag.r];if(c["植"]>.5)gather("植",Math.min(4,c["植"]));
-   const fi=bag.findIndex(b=>(b.v[E]+b.v[R])>.6);if(ag.sat<60&&fi>=0)eat(fi);
-   if(ag.q===ag.tgt[0]&&ag.r===ag.tgt[1])ag.tgt=null; }
- ag.sat-=.05;released+=.05; if(ag.sat<=0){ag.alive=false;document.getElementById("dead").style.display="flex";} }
+
+// 角色物理:重力下落;走;跳;挖;採;吃;合成
+function tick(){
+  if(P.alive){
+    // 重力
+    if(get(P.x,P.y+1).k===AIR){ P.y++; }
+    P.sat-=0.008; if(P.sat<=0){P.alive=false;document.getElementById("dead").style.display="flex";}
+  }
+}
+function move(d){ P.face=d; const nx=P.x+d;
+  if(!solid(nx,P.y)){ P.x=nx; if(get(nx,P.y+1).k===AIR&&get(nx,P.y+2).k===AIR){} }     // 走
+  else if(!solid(nx,P.y-1)&&get(nx,P.y).k!==T.水){ P.x=nx; P.y--; }                      // 爬一階
+  P.sat-=0.01;
+}
+function jump(){ // 若頭上空、往上兩格(簡化跳)
+  if(get(P.x,P.y-1).k===AIR){ P.y--; if(get(P.x,P.y-1).k===AIR)P.y--; P.sat-=0.02; }
+}
+function digAt(x,y){ const c=get(x,y); if(!inb(x,y)||c.k===AIR||c.k===T.火)return false;
+  if(c.k===T.草){ // 挖草=取土塊(方塊帳),草生物量當食物(可再生、不計帳)
+    bag.push({name:"土",amt:1,food:false}); if(c.b>0.05)bag.push({name:"草",amt:c.b,food:true});
+  } else bag.push({name:Object.keys(T).find(k=>T[k]===c.k),amt:1,food:false});
+  g[key(x,y)]={k:AIR,b:0}; return true; }
+function dig(){ // 挖朝向格,沒有就挖腳下
+  if(digAt(P.x+P.face,P.y)) {} else if(digAt(P.x,P.y+1)){} else digAt(P.x+P.face,P.y+1);
+  P.sat-=0.02; }
+function gather(){ // 採當前/腳下草的生物量(不挖掉土;草=可再生食物)
+  for(const[x,y]of[[P.x,P.y],[P.x,P.y+1],[P.x+P.face,P.y]]){ const c=get(x,y);
+    if(c.k===T.草&&c.b>0.1){ bag.push({name:"草",amt:c.b,food:true}); c.b=0.05; P.sat-=0.01; msg("採了草"); return; } }
+  msg("附近沒有可採的草"); }
+function eat(){ const i=bag.findIndex(b=>b.food); if(i<0){msg("背包沒食物——去採草 🌿");return;}
+  const f=bag[i]; const gain=10*f.amt; P.sat=Math.min(100,P.sat+gain); bag.splice(i,1); msg("吃了草,飽足 +"+gain.toFixed(0)); }
+function combine(){ const idx=bag.map((b,i)=>i).filter(i=>!bag[i].food);   // 只合成方塊(非食物)
+  if(idx.length<2){msg("需要兩個方塊才能合成(挖一些)");return;}
+  const A=bag[idx[0]],B=bag[idx[1]];
+  let n="混合"; if((A.name==="火"&&B.name==="土")||(A.name==="土"&&B.name==="火"))n="燒結";   // 火+土→燒結(湧現)
+  const amt=Math.min(A.amt,B.amt); A.amt-=amt;B.amt-=amt; bag=bag.filter(b=>b.amt>1e-6);
+  bag.push({name:n,amt:amt*2,food:false}); msg("合成出 "+n+"(火+土→燒結)"); }
+function msg(t){ document.getElementById("msg").textContent=t; }
 
 // 渲染
-const cv=document.getElementById("cv"),ctx=cv.getContext("2d");let size=14,ox=0,oy=0;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");let cs=12,oxp=0,oyp=0;
 function resize(){const st=document.getElementById("stage");cv.width=st.clientWidth*devicePixelRatio;cv.height=st.clientHeight*devicePixelRatio;
- ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ox=st.clientWidth/2;oy=st.clientHeight/2;
- size=Math.max(5,Math.min(st.clientWidth/(Math.sqrt(3)*(2*RAD+2)),st.clientHeight/(1.5*(2*RAD+2))));}
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); cs=Math.max(8,Math.min(st.clientWidth/Wc, st.clientHeight/Hc));
+  oxp=(st.clientWidth-cs*Wc)/2; oyp=(st.clientHeight-cs*Hc)/2; }
 addEventListener("resize",resize);
-const hp=(q,r)=>[ox+size*Math.sqrt(3)*(q+r/2),oy+size*1.5*r];
-function tcol(t){const c=[[44,70,120],[60,120,150],[90,130,90],[150,140,80],[170,90,60],[180,60,60]];
- const x=clamp01(t)*(c.length-1)|0,f=clamp01(t)*(c.length-1)-x,a=c[x],b=c[Math.min(x+1,5)];
- return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
-function hex(cx,cy){ctx.beginPath();for(let i=0;i<6;i++){const an=Math.PI/180*(60*i-90),x=cx+size*Math.cos(an),y=cy+size*Math.sin(an);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
-function draw(){ ctx.clearRect(0,0,cv.width,cv.height);
- for(const k in W){const[q,r]=k.split(",").map(Number),c=W[k],[cx,cy]=hp(q,r); const temp=sunAt(r)/SUN; // 用日照當底色暖度
-   hex(cx,cy);ctx.fillStyle=tcol(.2+.6*temp);ctx.fill();
-   const green=Math.min(1,c["植"]/MAXB); if(green>.02){ctx.fillStyle=`rgba(70,200,90,${.25+.6*green})`;ctx.fill();}
-   if(c["火"]>.5){ctx.fillStyle="rgba(255,120,40,.8)";ctx.beginPath();ctx.arc(cx,cy,size*.3,0,7);ctx.fill();}
-   ctx.lineWidth=1;ctx.strokeStyle="rgba(0,0,0,.35)";ctx.stroke(); }
- if(ag){const[cx,cy]=hp(ag.q,ag.r);ctx.fillStyle=ag.alive?"#fff":"#888";ctx.beginPath();ctx.arc(cx,cy,size*.42,0,7);ctx.fill();
-   ctx.fillStyle="#111";ctx.font=`${size*.5}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("◉",cx,cy);}
- document.getElementById("clock").textContent=((frame%DAY)/DAY<.5)?"日 ☀":"夜 ☾";
- const sp=ag?Math.max(0,Math.min(100,ag.sat)):0; const sb=document.getElementById("sat");sb.style.width=sp+"%";sb.style.background=sp<20?"#ff5d5d":sp<50?"#ffb454":"#46c46a";
- document.getElementById("bag").textContent=bag.reduce((s,b)=>s+1,0);
- document.getElementById("eledger").textContent=superE().toFixed(0)+"/"+S0.toFixed(0);
- document.getElementById("mledger").textContent=matter().toFixed(0)+"/"+M0.toFixed(0);}
-let acc=0;
-function loop(){ if(!paused){ ecoStep(); if(frame%3===0)agentTick(); frame++; } draw(); requestAnimationFrame(loop); }
+function shade(col,l){ const m=/(\d+),(\d+),(\d+)/.exec(col)||[]; // 非rgb→直接乘亮度近似(hex)
+  const r=parseInt(col.slice(1,3),16),gg=parseInt(col.slice(3,5),16),bb=parseInt(col.slice(5,7),16);
+  const f=0.25+0.75*Math.min(1,l); return `rgb(${r*f|0},${gg*f|0},${bb*f|0})`; }
+function draw(){
+  // 天空(隨晝夜)
+  const ph=(frame%900)/900, day=Math.max(.1,1-2*Math.abs(ph-.5));
+  ctx.fillStyle=`rgb(${20+90*day|0},${30+110*day|0},${50+150*day|0})`; ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<Hc;y++)for(let x=0;x<Wc;x++){ const c=g[key(x,y)]; if(!c||c.k===AIR)continue;
+    const px=oxp+x*cs,py=oyp+y*cs,l=light[key(x,y)];
+    ctx.fillStyle=shade(COL[c.k],l); ctx.fillRect(px,py,cs+0.5,cs+0.5);
+    if(c.k===T.草&&c.b>0.05){ ctx.fillStyle=`rgba(90,220,110,${Math.min(.9,.3+c.b)})`; ctx.fillRect(px,py-cs*0.35,cs,cs*0.4); }
+  }
+  // 角色
+  if(P){ const px=oxp+P.x*cs,py=oyp+P.y*cs; ctx.fillStyle=P.alive?"#fff":"#888";
+    ctx.fillRect(px+cs*0.2,py+cs*0.1,cs*0.6,cs*0.8); ctx.fillStyle="#111";
+    ctx.fillRect(px+(P.face>0?cs*0.55:cs*0.3),py+cs*0.25,cs*0.15,cs*0.15); }
+  // HUD
+  document.getElementById("clock").textContent=((frame%900)/900<.5)?"日 ☀":"夜 ☾";
+  const sp=P?Math.max(0,Math.min(100,P.sat)):0;const sb=document.getElementById("sat");sb.style.width=sp+"%";
+  sb.style.background=sp<20?"#ff5d5d":sp<50?"#ffb454":"#46c46a";
+  document.getElementById("bag").textContent=bagCount();
+  document.getElementById("ledger").textContent=ledger().toFixed(1)+"/"+M0.toFixed(1);
+}
+let t2=0;
+function loop(){ if(!paused){ calcLight(); if(frame%2===0)gravityStep(); if(frame%4===0)ecoStep(); tick(); frame++; } draw(); requestAnimationFrame(loop); }
 
-function pick(px,py){let best=null,bd=1e9;for(const k in W){const[q,r]=k.split(",").map(Number),[cx,cy]=hp(q,r),d=(cx-px)**2+(cy-py)**2;if(d<bd){bd=d;best=k;}}
- if(best&&bd<(size*1.1)**2){const[q,r]=best.split(",").map(Number); auto=false;document.getElementById("auto").classList.remove("on"); if(ag)ag.tgt=[q,r];}}
-cv.addEventListener("pointerdown",e=>{const r=cv.getBoundingClientRect();pick(e.clientX-r.left,e.clientY-r.top);});
-document.getElementById("auto").onclick=e=>{auto=!auto;e.target.classList.toggle("on",auto);if(auto&&ag)ag.tgt=null;};
-document.getElementById("combineBtn").onclick=combine;
-document.getElementById("reset").onclick=()=>{build();resize();};
-document.getElementById("respawn").onclick=()=>{build();resize();};
-build();resize();loop();
+// 點畫面=挖那格(若在角色附近)
+function tap(px,py){ const x=Math.floor((px-oxp)/cs),y=Math.floor((py-oyp)/cs);
+  if(Math.abs(x-P.x)<=1&&Math.abs(y-P.y)<=1){ digAt(x,y); P.sat-=0.02; } }
+cv.addEventListener("pointerdown",e=>{const r=cv.getBoundingClientRect();tap(e.clientX-r.left,e.clientY-r.top);});
+const B=(id,fn)=>document.getElementById(id).onclick=fn;
+B("bL",()=>move(-1));B("bR",()=>move(1));B("bJ",jump);B("bDig",dig);B("bGr",gather);B("bEat",eat);B("bCraft",combine);
+B("respawn",()=>{gen();resize();});
+addEventListener("keydown",e=>{const m={ArrowLeft:()=>move(-1),ArrowRight:()=>move(1),ArrowUp:jump,a:()=>move(-1),d:()=>move(1),w:jump,
+  z:dig,x:gather,c:eat,v:combine}[e.key];if(m){m();e.preventDefault();}});
+gen();resize();loop();
 </script>
 </body>
 </html>
