@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>守恆六角世界 — 可玩 demo</title>
+<style>
+  :root{--bg:#0e1116;--fg:#e6e6e6;--mut:#8a93a0;--acc:#4da3ff;--good:#46c46a;--warn:#ffb454}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;-webkit-tap-highlight-color:transparent}
+  #wrap{display:flex;flex-direction:column;height:100%}
+  header{padding:8px 12px;border-bottom:1px solid #222a35}
+  header h1{margin:0;font-size:15px;font-weight:700}
+  header p{margin:2px 0 0;font-size:11px;color:var(--mut)}
+  #hud{display:flex;flex-wrap:wrap;gap:6px 14px;padding:7px 12px;font-size:12px;border-bottom:1px solid #222a35}
+  #hud b{color:var(--acc);font-variant-numeric:tabular-nums}
+  #hud .cons{color:var(--good)}
+  #stage{flex:1;position:relative;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  #info{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--mut);
+    background:rgba(14,17,22,.7);border:1px solid #222a35;border-radius:8px;padding:6px 9px;max-width:74%}
+  #legend{position:absolute;right:10px;bottom:10px;font-size:10px;color:var(--mut);
+    background:rgba(14,17,22,.7);border:1px solid #222a35;border-radius:8px;padding:6px 9px}
+  #legend .bar{height:8px;width:120px;border-radius:4px;margin:3px 0;
+    background:linear-gradient(90deg,#2b5cff,#2bd6ff,#46c46a,#ffd24d,#ff6a3d,#ff2d2d)}
+  .row{display:flex;justify-content:space-between}
+  button{font:inherit;font-size:12px;background:#1a2230;color:var(--fg);border:1px solid #2c3a4e;
+    border-radius:7px;padding:5px 10px;cursor:pointer}
+  button:active{background:#243247}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>守恆六角世界 · 可玩 demo</h1>
+    <p>能量從太陽穿流到太空（超系統守恆）· 緯度+晝夜溫度梯度 · 點六角挖礦（世界會耗）· 總帳即時顯示「不憑空生滅」</p>
+  </header>
+  <div id="hud">
+    <span>晝夜 <b id="clock">日</b></span>
+    <span>超系統能量帳 <b id="eledger" class="cons">—</b><span class="cons"> (恆定)</span></span>
+    <span>物質總帳 <b id="mledger" class="cons">—</b><span class="cons"> (恆定)</span></span>
+    <span>背包 <b id="bag">0</b> 份</span>
+    <button id="pause">⏸ 暫停</button>
+    <button id="reset">↻ 重置</button>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="info">點任一六角＝挖礦：那格物質進你背包、世界對應變少。看上方兩本總帳——挖礦/穿流下都<b>恆定</b>（守恆）。</div>
+    <div id="legend"><div class="row"><span>冷</span><span>熱</span></div><div class="bar"></div><div>(顏色＝溫度 E軸)</div></div>
+  </div>
+</div>
+<script>
+// ── 守恆六角世界（JS 鏡像 verified Python: hexmap 擴散 + boundary 梯度穿流 + material extract）──
+// ★Python(world_sim/hexmap/material) 為驗證過的真值來源;此瀏覽器版忠實鏡像其守恆律,讓你「摸得到」。
+const Q=1;                       // 此 demo 用 [0,1] float(Python 用整數 Q=1000)
+const E=0,ST=1,D=2,S=3,R=4,L=5;  // 6 軸(同 Python)
+const DIFFUSE=0.10;              // 熱擴散率(同 Python:<1/鄰數穩定)
+const SPACE=0.06;                // 太空輻射比例
+const SUN=0.05;                  // 基礎日照
+const DAY=900;                   // 晝夜週期( frame )
+const LAT=6;                     // 緯度跨度(赤道 r=0)
+const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]; // 六角 6 鄰
+const RAD=7;                     // 盤面六角半徑(全域,resize 用它把整個世界縮進螢幕)
+
+let W={}, frame=0, paused=false, bag=0, bagE=0, bagM=0, sunGiven=0, spaceSink=0, e0=0;
+
+function rnd(){ return Math.random(); }
+function mk(vec,amount){ return {vec:vec.slice(), amount}; }
+
+function build(){
+  W={}; frame=0; bag=0; bagE=0; bagM=0; sunGiven=0; spaceSink=0;
+  for(let q=-RAD;q<=RAD;q++) for(let r=-RAD;r<=RAD;r++){
+    if(Math.abs(q+r)>RAD) continue;              // 修剪成六邊形盤面
+    // 初始:溫度隨緯度(赤道暖、極地涼)+ 微噪;密度/結構隨機 → 有東西可挖
+    const lat = 1 - Math.abs(r)/(RAD+1);
+    const vec=[0.15+0.4*lat+0.08*rnd(), 0.3+0.4*rnd(), 0.35+0.5*rnd(), 0.05, 0.1+0.2*rnd(), 0.2+0.3*rnd()];
+    W[q+","+r]=mk(vec, 60+Math.floor(120*rnd()));
+  }
+  e0 = ledgerE();                                // 記初始超系統能量(應恆定)
+}
+
+function sunAt(r){
+  const lat = Math.max(0, 1 - Math.abs(r)/LAT);              // 緯度:赤道強、極地 0
+  const phase = (frame % DAY)/DAY;
+  const day = Math.max(0, 1 - 2*Math.abs(phase-0.5));        // 晝夜三角波(無 trig→確定)
+  return SUN * lat * day;
+}
+
+function step(){
+  const keys=Object.keys(W);
+  // 1) 熱擴散(逐邊、reduced-mass、守恆):移轉 extensive 熱能
+  const dT={}; const seen=new Set();
+  for(const k of keys){
+    const [q,r]=k.split(",").map(Number); const a=W[k];
+    for(const[dq,dr]of DIRS){
+      const nk=(q+dq)+","+(r+dr); const b=W[nk]; if(!b) continue;
+      const e=k<nk?k+"|"+nk:nk+"|"+k; if(seen.has(e))continue; seen.add(e);
+      const delta=DIFFUSE*(a.vec[E]-b.vec[E])*(a.amount*b.amount)/(a.amount+b.amount);
+      dT[k]=(dT[k]||0)-delta; dT[nk]=(dT[nk]||0)+delta;
+    }
+  }
+  for(const k in dT){ const m=W[k]; m.vec[E]=Math.min(1,Math.max(0, m.vec[E]+dT[k]/m.amount)); }
+  // 2) 能量穿流(太陽進 / 太空出),記實際 → 超系統守恆
+  for(const k of keys){
+    const [q,r]=k.split(",").map(Number); const m=W[k];
+    let thermal=m.vec[E]*m.amount;
+    const s=sunAt(r);
+    if(s>0){ const add=Math.min(s*m.amount,(1-m.vec[E])*m.amount); thermal+=add; sunGiven+=add; }
+    const rad=SPACE*thermal; thermal-=rad; spaceSink+=rad;
+    m.vec[E]=thermal/m.amount;
+  }
+  frame++;
+}
+
+function ledgerE(){ let s=0; for(const k in W) s+=W[k].vec[E]*W[k].amount; return s + bagE; }
+function ledgerSuper(){ return ledgerE() - sunGiven + spaceSink; }  // 應 == e0(恆定)
+function ledgerM(){ let s=0; for(const k in W) s+=W[k].vec[D]*W[k].amount; return s + bagM; }
+
+// ── 渲染(尖頂 pointy-top 六角) ──
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+let size=18, ox=0, oy=0;
+function resize(){ const st=document.getElementById("stage"); cv.width=st.clientWidth*devicePixelRatio;
+  cv.height=st.clientHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ox=st.clientWidth/2; oy=st.clientHeight/2;
+  // 把半徑 RAD 的整個六邊形盤面縮進螢幕(尖頂:寬≈√3·(2R+2)·size、高≈1.5·(2R+2)·size)
+  const fitW=st.clientWidth/(Math.sqrt(3)*(2*RAD+2)), fitH=st.clientHeight/(1.5*(2*RAD+2));
+  size=Math.max(5, Math.min(fitW, fitH)); }
+window.addEventListener("resize",resize);
+function hexPix(q,r){ return [ox+size*Math.sqrt(3)*(q+r/2), oy+size*1.5*r]; } // 尖頂朝上
+function tempColor(t){ // 冷藍→熱紅
+  const c=[[43,92,255],[43,214,255],[70,196,106],[255,210,77],[255,106,61],[255,45,45]];
+  const x=Math.max(0,Math.min(0.999,t))*(c.length-1); const i=Math.floor(x),f=x-i;
+  const a=c[i],b=c[i+1]; return `rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;
+}
+function hexPath(cx,cy){ ctx.beginPath();
+  for(let i=0;i<6;i++){ const ang=Math.PI/180*(60*i-90); // -90=尖頂朝上
+    const x=cx+size*Math.cos(ang), y=cy+size*Math.sin(ang); i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.closePath(); }
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(const k in W){ const [q,r]=k.split(",").map(Number); const m=W[k];
+    const [cx,cy]=hexPix(q,r); hexPath(cx,cy);
+    ctx.fillStyle=tempColor(m.vec[E]); ctx.globalAlpha=0.35+0.65*Math.min(1,m.amount/120); ctx.fill();
+    ctx.globalAlpha=1; ctx.lineWidth=1; ctx.strokeStyle="rgba(0,0,0,.35)"; ctx.stroke();
+  }
+  document.getElementById("clock").textContent = ((frame%DAY)/DAY<0.5)?"日 ☀":"夜 ☾";
+  document.getElementById("eledger").textContent = ledgerSuper().toFixed(1)+" / 初始 "+e0.toFixed(1);
+  document.getElementById("mledger").textContent = ledgerM().toFixed(0);
+  document.getElementById("bag").textContent = bag;
+}
+function loop(){ if(!paused){ step(); } draw(); requestAnimationFrame(loop); }
+
+// ── 互動:點六角＝挖礦(extract,守恆:世界→背包) ──
+function pick(px,py){ let best=null,bd=1e9;
+  for(const k in W){ const [q,r]=k.split(",").map(Number); const [cx,cy]=hexPix(q,r);
+    const d=(cx-px)**2+(cy-py)**2; if(d<bd){bd=d;best=k;} }
+  if(best && bd< (size*1.1)**2){ const m=W[best]; const take=Math.min(20,m.amount);
+    if(take>0){ bagE+=m.vec[E]*take; bagM+=m.vec[D]*take; m.amount-=take; bag++; if(m.amount<=0.5) delete W[best]; }
+  }
+}
+cv.addEventListener("pointerdown",e=>{ const rct=cv.getBoundingClientRect(); pick(e.clientX-rct.left,e.clientY-rct.top); });
+document.getElementById("pause").onclick=e=>{paused=!paused; e.target.textContent=paused?"▶ 繼續":"⏸ 暫停";};
+document.getElementById("reset").onclick=()=>{build();resize();};
+
+build(); resize(); loop();
+</script>
+</body>
+</html>
