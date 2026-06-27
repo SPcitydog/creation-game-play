@@ -56,6 +56,9 @@
 // 2D 側視最小活世界(鏡像 verified Python:守恆+生態+採集/合成;這裡空間=泰拉瑞亞式側視、重力向下、太陽從上)。
 const Wc=48, Hc=34;            // 世界格寬高
 const SKY=8;                   // 上方天空列數
+const DAY=72000;               // 日夜週期(幀)≈20分鐘@60fps(可調)
+const CHUNK_R=6;               // ★六角 chunk 半徑(格數)——待討論的大小;先畫出來看
+let showChunks=true;
 const AIR=0;                   // 空氣(無方塊)
 // 方塊種類:每種一個質量(方塊帳)+顏色。GRASS=地表土長草(可採)。
 const T={ air:0, 土:1, 石:2, 礦:3, 沙:4, 水:5, 火:6, 草:7 };
@@ -96,7 +99,7 @@ function bagCount(){ return bag.length; }
 let light=[];
 function calcLight(){
   light=new Array(Wc*Hc).fill(0);
-  const ph=(frame%900)/900, day=Math.max(.15,1-2*Math.abs(ph-.5));   // 晝夜
+  const ph=(frame%DAY)/DAY, day=Math.max(.15,1-2*Math.abs(ph-.5));   // 晝夜
   for(let x=0;x<Wc;x++){ let l=day;
     for(let y=0;y<Hc;y++){ light[key(x,y)]=l; if(solid(x,y)) l*=0.55; else l*=0.96; l=Math.max(0,l); } }
 }
@@ -175,7 +178,7 @@ function shade(col,l){ const m=/(\d+),(\d+),(\d+)/.exec(col)||[]; // 非rgb→�
   const f=0.25+0.75*Math.min(1,l); return `rgb(${r*f|0},${gg*f|0},${bb*f|0})`; }
 function draw(){
   // 天空(隨晝夜)
-  const ph=(frame%900)/900, day=Math.max(.1,1-2*Math.abs(ph-.5));
+  const ph=(frame%DAY)/DAY, day=Math.max(.1,1-2*Math.abs(ph-.5));
   ctx.fillStyle=`rgb(${20+90*day|0},${30+110*day|0},${50+150*day|0})`; ctx.fillRect(0,0,cv.width,cv.height);
   for(let y=0;y<Hc;y++)for(let x=0;x<Wc;x++){ const c=g[key(x,y)]; if(!c||c.k===AIR)continue;
     const px=oxp+x*cs,py=oyp+y*cs,l=light[key(x,y)];
@@ -186,12 +189,23 @@ function draw(){
   if(P){ const px=oxp+P.x*cs,py=oyp+P.y*cs; ctx.fillStyle=P.alive?"#fff":"#888";
     ctx.fillRect(px+cs*0.2,py+cs*0.1,cs*0.6,cs*0.8); ctx.fillStyle="#111";
     ctx.fillRect(px+(P.face>0?cs*0.55:cs*0.3),py+cs*0.25,cs*0.15,cs*0.15); }
+  drawChunks();
   // HUD
-  document.getElementById("clock").textContent=((frame%900)/900<.5)?"日 ☀":"夜 ☾";
+  document.getElementById("clock").textContent=((frame%DAY)/DAY<.5)?"日 ☀":"夜 ☾";
   const sp=P?Math.max(0,Math.min(100,P.sat)):0;const sb=document.getElementById("sat");sb.style.width=sp+"%";
   sb.style.background=sp<20?"#ff5d5d":sp<50?"#ffb454":"#46c46a";
   document.getElementById("bag").textContent=bagCount();
   document.getElementById("ledger").textContent=ledger().toFixed(1)+"/"+M0.toFixed(1);
+}
+// ★六角 chunk 疊圖(pointy-top):把世界切塊的那層線畫出來,給我們討論大小用
+function drawChunks(){ if(!showChunks)return;
+  const s=CHUNK_R*cs; ctx.strokeStyle="rgba(255,255,255,.22)"; ctx.lineWidth=1.2;
+  const W=cv.width/devicePixelRatio, H=cv.height/devicePixelRatio;
+  const rows=Math.ceil(H/(s*1.5))+2, cols=Math.ceil(W/(s*Math.sqrt(3)))+2;
+  for(let r=-1;r<rows;r++)for(let q=-1;q<cols;q++){
+    const cx=s*Math.sqrt(3)*(q+(r&1?0.5:0)), cy=s*1.5*r;
+    ctx.beginPath(); for(let i=0;i<6;i++){const an=Math.PI/180*(60*i-90),x=cx+s*Math.cos(an),y=cy+s*Math.sin(an);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+    ctx.closePath(); ctx.stroke(); }
 }
 let t2=0;
 function loop(){ if(!paused){ calcLight(); if(frame%2===0)gravityStep(); if(frame%4===0)ecoStep(); tick(); frame++; } draw(); requestAnimationFrame(loop); }
