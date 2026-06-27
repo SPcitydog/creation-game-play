@@ -3,166 +3,195 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>守恆六角世界 — 可玩 demo</title>
+<title>守恆六角世界 — 創造迴圈 demo</title>
 <style>
-  :root{--bg:#0e1116;--fg:#e6e6e6;--mut:#8a93a0;--acc:#4da3ff;--good:#46c46a;--warn:#ffb454}
+  :root{--bg:#0e1116;--fg:#e6e6e6;--mut:#8a93a0;--acc:#4da3ff;--good:#46c46a;--card:#161c26;--bd:#2c3a4e}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
     font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;-webkit-tap-highlight-color:transparent}
   #wrap{display:flex;flex-direction:column;height:100%}
-  header{padding:8px 12px;border-bottom:1px solid #222a35}
-  header h1{margin:0;font-size:15px;font-weight:700}
-  header p{margin:2px 0 0;font-size:11px;color:var(--mut)}
-  #hud{display:flex;flex-wrap:wrap;gap:6px 14px;padding:7px 12px;font-size:12px;border-bottom:1px solid #222a35}
-  #hud b{color:var(--acc);font-variant-numeric:tabular-nums}
-  #hud .cons{color:var(--good)}
-  #stage{flex:1;position:relative;overflow:hidden}
+  header{padding:7px 11px;border-bottom:1px solid #222a35}
+  header h1{margin:0;font-size:14px;font-weight:700}
+  header p{margin:2px 0 0;font-size:10.5px;color:var(--mut)}
+  #hud{display:flex;flex-wrap:wrap;gap:5px 12px;padding:6px 11px;font-size:11.5px;border-bottom:1px solid #222a35}
+  #hud b{color:var(--acc);font-variant-numeric:tabular-nums}.cons{color:var(--good)}
+  #main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;overflow:hidden;min-width:0}
   canvas{display:block;width:100%;height:100%;touch-action:none}
-  #info{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--mut);
-    background:rgba(14,17,22,.7);border:1px solid #222a35;border-radius:8px;padding:6px 9px;max-width:74%}
-  #legend{position:absolute;right:10px;bottom:10px;font-size:10px;color:var(--mut);
-    background:rgba(14,17,22,.7);border:1px solid #222a35;border-radius:8px;padding:6px 9px}
-  #legend .bar{height:8px;width:120px;border-radius:4px;margin:3px 0;
-    background:linear-gradient(90deg,#2b5cff,#2bd6ff,#46c46a,#ffd24d,#ff6a3d,#ff2d2d)}
-  .row{display:flex;justify-content:space-between}
-  button{font:inherit;font-size:12px;background:#1a2230;color:var(--fg);border:1px solid #2c3a4e;
-    border-radius:7px;padding:5px 10px;cursor:pointer}
-  button:active{background:#243247}
+  #side{width:230px;border-left:1px solid #222a35;display:flex;flex-direction:column;background:#0c0f14}
+  #side h2{font-size:11px;color:var(--mut);margin:0;padding:7px 9px 4px;text-transform:uppercase;letter-spacing:.5px}
+  #inv{flex:1;overflow:auto;padding:0 9px 9px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+  .item{width:64px;border:1px solid var(--bd);border-radius:8px;padding:5px;cursor:pointer;background:var(--card);font-size:10px}
+  .item.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+  .item .sw{height:18px;border-radius:4px;margin-bottom:3px}
+  .item .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .ds{color:var(--mut);font-size:9px;line-height:1.25;height:34px;overflow:hidden}
+  #craft{padding:8px 9px;border-top:1px solid #222a35}
+  #craft button{width:100%;font:inherit;font-size:12.5px;font-weight:700;background:#1f6feb;color:#fff;border:0;
+    border-radius:9px;padding:9px;cursor:pointer;opacity:.5}
+  #craft button.on{opacity:1}
+  #out{margin-top:7px;font-size:11px;color:var(--mut);min-height:30px}
+  #out b{color:var(--good)}
+  #info{position:absolute;left:9px;bottom:9px;font-size:10.5px;color:var(--mut);
+    background:rgba(14,17,22,.72);border:1px solid #222a35;border-radius:8px;padding:5px 8px;max-width:70%}
+  .sbtn{font:inherit;font-size:11px;background:#1a2230;color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;cursor:pointer}
+  @media(max-width:620px){#side{width:150px}.item{width:64px}}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
-    <h1>守恆六角世界 · 可玩 demo</h1>
-    <p>能量從太陽穿流到太空（超系統守恆）· 緯度+晝夜溫度梯度 · 點六角挖礦（世界會耗）· 總帳即時顯示「不憑空生滅」</p>
+    <h1>守恆六角世界 · 創造迴圈</h1>
+    <p>點六角採集材料 → 選兩個合成 → 湧現產物(由屬性算出、非查食譜)。能量太陽穿流到太空、總帳恆定=守恆。</p>
   </header>
   <div id="hud">
     <span>晝夜 <b id="clock">日</b></span>
-    <span>超系統能量帳 <b id="eledger" class="cons">—</b><span class="cons"> (恆定)</span></span>
-    <span>物質總帳 <b id="mledger" class="cons">—</b><span class="cons"> (恆定)</span></span>
-    <span>背包 <b id="bag">0</b> 份</span>
-    <button id="pause">⏸ 暫停</button>
-    <button id="reset">↻ 重置</button>
+    <span>能量帳 <b id="eledger" class="cons">—</b></span>
+    <span>物質帳 <b id="mledger" class="cons">—</b></span>
+    <button class="sbtn" id="pause">⏸</button><button class="sbtn" id="reset">↻</button>
   </div>
-  <div id="stage">
-    <canvas id="cv"></canvas>
-    <div id="info">點任一六角＝挖礦：那格物質進你背包、世界對應變少。看上方兩本總帳——挖礦/穿流下都<b>恆定</b>（守恆）。</div>
-    <div id="legend"><div class="row"><span>冷</span><span>熱</span></div><div class="bar"></div><div>(顏色＝溫度 E軸)</div></div>
+  <div id="main">
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div id="info">點六角＝採集（那格物質進右側背包、世界對應變少）。選背包兩格 → 合成。</div>
+    </div>
+    <div id="side">
+      <h2>背包（點選兩個）</h2>
+      <div id="inv"></div>
+      <div id="craft">
+        <button id="combine">合成 ✦</button>
+        <div id="out">試試組合不同材料——你會做出設計者沒寫進食譜的東西。</div>
+      </div>
+    </div>
   </div>
 </div>
 <script>
-// ── 守恆六角世界（JS 鏡像 verified Python: hexmap 擴散 + boundary 梯度穿流 + material extract）──
-// ★Python(world_sim/hexmap/material) 為驗證過的真值來源;此瀏覽器版忠實鏡像其守恆律,讓你「摸得到」。
-const Q=1;                       // 此 demo 用 [0,1] float(Python 用整數 Q=1000)
-const E=0,ST=1,D=2,S=3,R=4,L=5;  // 6 軸(同 Python)
-const DIFFUSE=0.10;              // 熱擴散率(同 Python:<1/鄰數穩定)
-const SPACE=0.06;                // 太空輻射比例
-const SUN=0.05;                  // 基礎日照
-const DAY=900;                   // 晝夜週期( frame )
-const LAT=6;                     // 緯度跨度(赤道 r=0)
-const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]; // 六角 6 鄰
-const RAD=7;                     // 盤面六角半徑(全域,resize 用它把整個世界縮進螢幕)
+// ── 守恆六角世界 + 合成創造迴圈（JS;合成規則忠實移植 verified Python creation_engine_v2）──
+// ★Python(world_sim/hexmap/material/creation_engine_v2) 為驗證過的真值;此瀏覽器版忠實鏡像,讓你摸得到創造自由度。
+const E=0,ST=1,D=2,S=3,R=4,L=5;
+const DIFFUSE=0.10,SPACE=0.06,SUN=0.05,DAY=900,LAT=6,RAD=6;
+const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const clamp01=x=>x<0?0:x>1?1:x;
+const V=(...a)=>a.map(clamp01);
 
-let W={}, frame=0, paused=false, bag=0, bagE=0, bagM=0, sunGiven=0, spaceSink=0, e0=0;
+// ── 合成引擎（移植自 creation_engine_v2:14 規則→20 盆地;條件用屬性、不查名字＝P0）──
+const SEEDS={ "水":V(.3,.15,.5,.5,.3,.3),"火":V(.8,.05,.15,.85,.8,.4),"土":V(.22,.42,.58,.05,.18,.22),
+  "石":V(.22,.78,.4,.05,.08,.18),"氣":V(.42,.05,.1,.78,.32,.5),"光":V(.7,.05,.05,.88,.22,.88) };
+const mx=(a,b,i)=>Math.max(a[i],b[i]), mn=(a,b,i)=>Math.min(a[i],b[i]), av=(a,b,i)=>(a[i]+b[i])/2;
+const RULES=[
+ ["電漿",(a,b)=>{ if(mx(a,b,E)>.7&&mx(a,b,L)>.45&&mn(a,b,S)>.72&&mx(a,b,R)>.55&&mx(a,b,D)<.2) return V(.97,0,.05,1,.9,1);}],
+ ["冷光",(a,b)=>{ if(mx(a,b,E)>=.5&&mx(a,b,E)<=.85&&mx(a,b,L)>.7&&mx(a,b,S)>.75&&mx(a,b,R)<.5&&mx(a,b,D)<.25) return V(.7,0,.05,1,.2,.95);}],
+ ["玻璃",(a,b)=>{ if(mx(a,b,E)>.68&&mn(a,b,E)<.45){ const lo=a[E]<=b[E]?a:b; if(lo[ST]>.75&&lo[D]>.35&&lo[S]<.2)
+     return V(.4,.2,lo[D]+.05,0,lo[R]-.05,lo[L]+.3);}}],
+ ["淬火",(a,b)=>{ for(const[h,c]of[[a,b],[b,a]]) if(h[E]>.62&&h[ST]>.6&&c[E]<.4&&c[S]>=.35&&c[S]<=.7)
+     return V(.25,Math.min(.95,h[ST]+.1),h[D]+.08,0,h[R]-.15,h[L]-.05);}],
+ ["結晶",(a,b)=>{ for(const[l,s]of[[a,b],[b,a]]) if(l[S]>=.35&&l[S]<=.7&&l[ST]<.25&&s[S]<.25&&s[ST]>=.7&&s[D]>=.35)
+     return V(av(a,b,E)*.6,.9,mx(a,b,D),.05,.1,Math.min(.95,mx(a,b,L)+.25));}],
+ ["合金",(a,b)=>{ if(a[ST]>.55&&b[ST]>.55&&a[D]>.35&&b[D]>.35&&a[S]<.2&&b[S]<.2&&mx(a,b,E)<.7&&mx(a,b,R)<.5)
+     return V(mn(a,b,E),Math.min(.9,av(a,b,ST)+.1),Math.min(.95,mx(a,b,D)+.08),0,.1,Math.min(.4,Math.max(.2,av(a,b,L))));}],
+ ["燒結",(a,b)=>{ if(mx(a,b,E)>.65&&mn(a,b,E)<.5){ const lo=a[E]<=b[E]?a:b; if(lo[ST]>=.3&&lo[ST]<=.7&&lo[D]>.5&&lo[S]<.25&&lo[R]<.4)
+     return V(.3,Math.min(.8,lo[ST]+.3),lo[D]+.1,0,lo[R]-.1,lo[L]+.05);}}],
+ ["燃盡",(a,b)=>{ if(mn(a,b,E)>.6&&mn(a,b,R)>.5&&a[ST]<.3&&b[ST]<.3) return V(.15,Math.min(1,av(a,b,ST)+.2),Math.max(.2,Math.min(.5,av(a,b,D))),0,.1,.1);}],
+ ["汽化",(a,b)=>{ for(const[h,v]of[[a,b],[b,a]]) if(h[E]>.65&&v[S]>.4&&v[D]<.6) return V(v[E]-.3,v[ST],.1,1,v[R]+.05,v[L]);}],
+ ["溶解",(a,b)=>{ for(const[l,s]of[[a,b],[b,a]]) if(l[S]>=.35&&l[S]<=.7&&l[R]>=.4&&s[S]<.25&&s[ST]<.55)
+     return V(av(a,b,E),.1,av(a,b,D)+.1,.5,mx(a,b,R),av(a,b,L));}],
+ ["泥化",(a,b)=>{ for(const[l,s]of[[a,b],[b,a]]) if(l[S]>=.35&&l[S]<=.7&&l[ST]<.35&&s[S]<.25&&s[ST]<.5&&s[D]>=.4&&s[D]<=.75)
+     return V(av(a,b,E)*.7,Math.min(.5,av(a,b,ST)+.12),av(a,b,D)*.9,.15,av(a,b,R)*.7,mn(a,b,L));}],
+ ["壓實",(a,b)=>{ if(a[S]<.25&&b[S]<.25&&a[ST]>.3&&a[ST]<.6&&b[ST]>.3&&b[ST]<.6&&(a[D]+b[D])>1.1&&mx(a,b,E)<.5&&mx(a,b,R)<.4)
+     return V(mn(a,b,E),Math.min(.7,av(a,b,ST)+.12),Math.min(.92,mx(a,b,D)+.12),0,mn(a,b,R),av(a,b,L)*.85);}],
+ ["冷凝",(a,b)=>{ if(mn(a,b,E)<.35&&mx(a,b,D)>=.4&&mx(a,b,D)<=.75&&mx(a,b,S)>.75&&mx(a,b,L)<.55) return V(.25,.15,.55,.5,.25,av(a,b,L));}],
+ ["稀釋",(a,b)=>{ if(a[S]>=.35&&b[S]>=.35&&a[ST]<.3&&b[ST]<.3&&mx(a,b,D)>=.3){ const wa=a[D]+.1,wb=b[D]+.1,w=wa+wb;
+     const v=[0,1,2,3,4,5].map(k=>(a[k]*wa+b[k]*wb)/w); v[S]=mn(a,b,S); v[ST]=Math.min(.25,v[ST]); return V(...v);}}],
+];
+const BASINS={ "電漿":V(.97,0,.05,1,.9,1),"冷光":V(.7,0,.05,1,.2,.95),"玻璃":V(.4,.2,.45,0,.03,.48),"淬火":V(.25,.85,.8,0,.1,.35),
+ "結晶":V(.16,.9,.5,.05,.1,.55),"合金":V(.22,.88,.48,0,.1,.2),"燒結":V(.3,.72,.68,0,.08,.27),"燃盡":V(.15,.25,.2,0,.1,.1),
+ "汽化":V(0,.15,.1,1,.35,.3),"溶解":V(.3,.1,.5,.5,.6,.3),"泥化":V(.18,.4,.49,.15,.17,.22),"壓實":V(.22,.54,.7,0,.18,.19),
+ "冷凝":V(.25,.15,.55,.5,.25,.37),"稀釋":V(.36,.09,.43,.5,.29,.4),...SEEDS };
+function fallback(a,b){ const wa=a[D]+.1,wb=b[D]+.1,w=wa+wb; const v=[0,1,2,3,4,5].map(k=>(a[k]*wa+b[k]*wb)/w);
+  v[S]=mn(a,b,S)*.6+av(a,b,S)*.4; v[E]=av(a,b,E)*.85; return V(...v); }
+function snap(v){ let best=null,bd=1e9; for(const k in BASINS){ let d=0; for(let i=0;i<6;i++) d+=(BASINS[k][i]-v[i])**2;
+  if(d<bd){bd=d;best=k;} } return best; }
+function react(a,b){ for(const[nm,fn]of RULES){ const o=fn(a,b); if(o) return [nm,o]; } const v=fallback(a,b); return [snap(v),v]; }
+// 語意:從屬性算出描述(P0:看屬性、不查名字)
+function describe(v){ const t=[];
+  t.push(v[E]>.66?"灼熱":v[E]>.33?"溫":"冰冷"); t.push(v[S]>.7?"氣態":v[S]>.3?"液態":"固態");
+  if(v[ST]>.6)t.push("堅硬"); if(v[D]>.6)t.push("緻密"); else if(v[D]<.2)t.push("輕");
+  if(v[R]>.6)t.push("易反應"); if(v[L]>.7)t.push("發光"); return t.join("·"); }
 
-function rnd(){ return Math.random(); }
-function mk(vec,amount){ return {vec:vec.slice(), amount}; }
-
-function build(){
-  W={}; frame=0; bag=0; bagE=0; bagM=0; sunGiven=0; spaceSink=0;
-  for(let q=-RAD;q<=RAD;q++) for(let r=-RAD;r<=RAD;r++){
-    if(Math.abs(q+r)>RAD) continue;              // 修剪成六邊形盤面
-    // 初始:溫度隨緯度(赤道暖、極地涼)+ 微噪;密度/結構隨機 → 有東西可挖
-    const lat = 1 - Math.abs(r)/(RAD+1);
-    const vec=[0.15+0.4*lat+0.08*rnd(), 0.3+0.4*rnd(), 0.35+0.5*rnd(), 0.05, 0.1+0.2*rnd(), 0.2+0.3*rnd()];
-    W[q+","+r]=mk(vec, 60+Math.floor(120*rnd()));
-  }
-  e0 = ledgerE();                                // 記初始超系統能量(應恆定)
-}
-
-function sunAt(r){
-  const lat = Math.max(0, 1 - Math.abs(r)/LAT);              // 緯度:赤道強、極地 0
-  const phase = (frame % DAY)/DAY;
-  const day = Math.max(0, 1 - 2*Math.abs(phase-0.5));        // 晝夜三角波(無 trig→確定)
-  return SUN * lat * day;
-}
-
-function step(){
-  const keys=Object.keys(W);
-  // 1) 熱擴散(逐邊、reduced-mass、守恆):移轉 extensive 熱能
-  const dT={}; const seen=new Set();
-  for(const k of keys){
-    const [q,r]=k.split(",").map(Number); const a=W[k];
-    for(const[dq,dr]of DIRS){
-      const nk=(q+dq)+","+(r+dr); const b=W[nk]; if(!b) continue;
+// ── 守恆世界 ──
+let W={},frame=0,paused=false,sunGiven=0,spaceSink=0,e0=0;
+const mk=(vec,a)=>({vec:vec.slice(),amount:a});
+function build(){ W={};frame=0;sunGiven=0;spaceSink=0; const names=Object.keys(SEEDS);
+  for(let q=-RAD;q<=RAD;q++)for(let r=-RAD;r<=RAD;r++){ if(Math.abs(q+r)>RAD)continue;
+    const nm=names[(Math.random()*names.length)|0]; const v=SEEDS[nm].slice();
+    v[E]=clamp01(v[E]*0.4+0.5*(1-Math.abs(r)/(RAD+1))+0.06*Math.random()); // 溫度疊緯度
+    W[q+","+r]={vec:v,amount:60+(80*Math.random()|0),name:nm}; }
+  e0=ledE(); }
+function sunAt(r){ const lat=Math.max(0,1-Math.abs(r)/LAT),ph=(frame%DAY)/DAY,day=Math.max(0,1-2*Math.abs(ph-.5)); return SUN*lat*day; }
+function step(){ const ks=Object.keys(W),dT={},seen=new Set();
+  for(const k of ks){ const[q,r]=k.split(",").map(Number),a=W[k];
+    for(const[dq,dr]of DIRS){ const nk=(q+dq)+","+(r+dr),b=W[nk]; if(!b)continue;
       const e=k<nk?k+"|"+nk:nk+"|"+k; if(seen.has(e))continue; seen.add(e);
-      const delta=DIFFUSE*(a.vec[E]-b.vec[E])*(a.amount*b.amount)/(a.amount+b.amount);
-      dT[k]=(dT[k]||0)-delta; dT[nk]=(dT[nk]||0)+delta;
-    }
-  }
-  for(const k in dT){ const m=W[k]; m.vec[E]=Math.min(1,Math.max(0, m.vec[E]+dT[k]/m.amount)); }
-  // 2) 能量穿流(太陽進 / 太空出),記實際 → 超系統守恆
-  for(const k of keys){
-    const [q,r]=k.split(",").map(Number); const m=W[k];
-    let thermal=m.vec[E]*m.amount;
-    const s=sunAt(r);
-    if(s>0){ const add=Math.min(s*m.amount,(1-m.vec[E])*m.amount); thermal+=add; sunGiven+=add; }
-    const rad=SPACE*thermal; thermal-=rad; spaceSink+=rad;
-    m.vec[E]=thermal/m.amount;
-  }
-  frame++;
-}
+      const dl=DIFFUSE*(a.vec[E]-b.vec[E])*(a.amount*b.amount)/(a.amount+b.amount);
+      dT[k]=(dT[k]||0)-dl; dT[nk]=(dT[nk]||0)+dl; } }
+  for(const k in dT){ const m=W[k]; m.vec[E]=clamp01(m.vec[E]+dT[k]/m.amount); }
+  for(const k of ks){ const[q,r]=k.split(",").map(Number),m=W[k]; let th=m.vec[E]*m.amount; const s=sunAt(r);
+    if(s>0){const add=Math.min(s*m.amount,(1-m.vec[E])*m.amount);th+=add;sunGiven+=add;}
+    const rad=SPACE*th;th-=rad;spaceSink+=rad; m.vec[E]=th/m.amount; } frame++; }
+function ledE(){let s=bagE();for(const k in W)s+=W[k].vec[E]*W[k].amount;return s;}
+function ledSuper(){return ledE()-sunGiven+spaceSink;}
+function ledM(){let s=bagM();for(const k in W)s+=W[k].vec[D]*W[k].amount;return s;}
 
-function ledgerE(){ let s=0; for(const k in W) s+=W[k].vec[E]*W[k].amount; return s + bagE; }
-function ledgerSuper(){ return ledgerE() - sunGiven + spaceSink; }  // 應 == e0(恆定)
-function ledgerM(){ let s=0; for(const k in W) s+=W[k].vec[D]*W[k].amount; return s + bagM; }
+// ── 背包 + 合成 ──
+let inv=[],sel=[];
+function bagE(){return inv.reduce((s,it)=>s+it.vec[E]*it.amt,0);}
+function bagM(){return inv.reduce((s,it)=>s+it.vec[D]*it.amt,0);}
+function renderInv(){ const el=document.getElementById("inv"); el.innerHTML="";
+  inv.forEach((it,i)=>{ const d=document.createElement("div"); d.className="item"+(sel.includes(i)?" sel":"");
+    d.innerHTML=`<div class="sw" style="background:${col(it.vec)}"></div><div class="nm">${it.name}</div><div class="ds">${describe(it.vec)}</div>`;
+    d.onclick=()=>{ const p=sel.indexOf(i); if(p>=0)sel.splice(p,1); else{ if(sel.length>=2)sel.shift(); sel.push(i);} renderInv(); upd();};
+    el.appendChild(d); });
+  document.getElementById("combine").className=sel.length===2?"on":""; }
+function combine(){ if(sel.length!==2)return; const A=inv[sel[0]],B=inv[sel[1]]; const[nm,v]=react(A.vec,B.vec);
+  const take=Math.min(A.amt,B.amt); // 合成消耗等量、守恆(產物=投入量,簡化)
+  const prod={name:nm,vec:v,amt:take};
+  // 消耗
+  A.amt-=take; B.amt-=take; inv=inv.filter(it=>it.amt>0.5);
+  inv.push(prod); sel=[];
+  document.getElementById("out").innerHTML=`合成出 <b>${nm}</b> ×${take|0}　<span style="color:#8a93a0">${describe(v)}</span>`;
+  renderInv(); }
 
-// ── 渲染(尖頂 pointy-top 六角) ──
-const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
-let size=18, ox=0, oy=0;
-function resize(){ const st=document.getElementById("stage"); cv.width=st.clientWidth*devicePixelRatio;
-  cv.height=st.clientHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-  ox=st.clientWidth/2; oy=st.clientHeight/2;
-  // 把半徑 RAD 的整個六邊形盤面縮進螢幕(尖頂:寬≈√3·(2R+2)·size、高≈1.5·(2R+2)·size)
-  const fitW=st.clientWidth/(Math.sqrt(3)*(2*RAD+2)), fitH=st.clientHeight/(1.5*(2*RAD+2));
-  size=Math.max(5, Math.min(fitW, fitH)); }
-window.addEventListener("resize",resize);
-function hexPix(q,r){ return [ox+size*Math.sqrt(3)*(q+r/2), oy+size*1.5*r]; } // 尖頂朝上
-function tempColor(t){ // 冷藍→熱紅
-  const c=[[43,92,255],[43,214,255],[70,196,106],[255,210,77],[255,106,61],[255,45,45]];
-  const x=Math.max(0,Math.min(0.999,t))*(c.length-1); const i=Math.floor(x),f=x-i;
-  const a=c[i],b=c[i+1]; return `rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;
-}
-function hexPath(cx,cy){ ctx.beginPath();
-  for(let i=0;i<6;i++){ const ang=Math.PI/180*(60*i-90); // -90=尖頂朝上
-    const x=cx+size*Math.cos(ang), y=cy+size*Math.sin(ang); i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.closePath(); }
-function draw(){
-  ctx.clearRect(0,0,cv.width,cv.height);
-  for(const k in W){ const [q,r]=k.split(",").map(Number); const m=W[k];
-    const [cx,cy]=hexPix(q,r); hexPath(cx,cy);
-    ctx.fillStyle=tempColor(m.vec[E]); ctx.globalAlpha=0.35+0.65*Math.min(1,m.amount/120); ctx.fill();
-    ctx.globalAlpha=1; ctx.lineWidth=1; ctx.strokeStyle="rgba(0,0,0,.35)"; ctx.stroke();
-  }
-  document.getElementById("clock").textContent = ((frame%DAY)/DAY<0.5)?"日 ☀":"夜 ☾";
-  document.getElementById("eledger").textContent = ledgerSuper().toFixed(1)+" / 初始 "+e0.toFixed(1);
-  document.getElementById("mledger").textContent = ledgerM().toFixed(0);
-  document.getElementById("bag").textContent = bag;
-}
-function loop(){ if(!paused){ step(); } draw(); requestAnimationFrame(loop); }
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"); let size=14,ox=0,oy=0;
+function resize(){ const st=document.getElementById("stage"); cv.width=st.clientWidth*devicePixelRatio;cv.height=st.clientHeight*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); ox=st.clientWidth/2;oy=st.clientHeight/2;
+  size=Math.max(5,Math.min(st.clientWidth/(Math.sqrt(3)*(2*RAD+2)),st.clientHeight/(1.5*(2*RAD+2)))); }
+addEventListener("resize",resize);
+const hpix=(q,r)=>[ox+size*Math.sqrt(3)*(q+r/2),oy+size*1.5*r];
+function col(v){ const c=[[43,92,255],[43,214,255],[70,196,106],[255,210,77],[255,106,61],[255,45,45]];
+  const x=clamp01(v[E])*(c.length-1)|0,f=clamp01(v[E])*(c.length-1)-x,a=c[x],b=c[Math.min(x+1,5)];
+  return `rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`; }
+function hexP(cx,cy){ ctx.beginPath(); for(let i=0;i<6;i++){const ang=Math.PI/180*(60*i-90),x=cx+size*Math.cos(ang),y=cy+size*Math.sin(ang);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
+function draw(){ ctx.clearRect(0,0,cv.width,cv.height);
+  for(const k in W){const[q,r]=k.split(",").map(Number),m=W[k],[cx,cy]=hpix(q,r); hexP(cx,cy);
+    ctx.fillStyle=col(m.vec); ctx.globalAlpha=.35+.65*Math.min(1,m.amount/120); ctx.fill();
+    ctx.globalAlpha=1;ctx.lineWidth=1;ctx.strokeStyle="rgba(0,0,0,.35)";ctx.stroke(); }
+  document.getElementById("clock").textContent=((frame%DAY)/DAY<.5)?"日 ☀":"夜 ☾";
+  document.getElementById("eledger").textContent=ledSuper().toFixed(0)+"/"+e0.toFixed(0);
+  document.getElementById("mledger").textContent=ledM().toFixed(0); }
+function upd(){ document.getElementById("combine").className=sel.length===2?"on":""; }
+function loop(){ if(!paused)step(); draw(); requestAnimationFrame(loop); }
 
-// ── 互動:點六角＝挖礦(extract,守恆:世界→背包) ──
-function pick(px,py){ let best=null,bd=1e9;
-  for(const k in W){ const [q,r]=k.split(",").map(Number); const [cx,cy]=hexPix(q,r);
-    const d=(cx-px)**2+(cy-py)**2; if(d<bd){bd=d;best=k;} }
-  if(best && bd< (size*1.1)**2){ const m=W[best]; const take=Math.min(20,m.amount);
-    if(take>0){ bagE+=m.vec[E]*take; bagM+=m.vec[D]*take; m.amount-=take; bag++; if(m.amount<=0.5) delete W[best]; }
-  }
-}
-cv.addEventListener("pointerdown",e=>{ const rct=cv.getBoundingClientRect(); pick(e.clientX-rct.left,e.clientY-rct.top); });
-document.getElementById("pause").onclick=e=>{paused=!paused; e.target.textContent=paused?"▶ 繼續":"⏸ 暫停";};
-document.getElementById("reset").onclick=()=>{build();resize();};
+function pickHex(px,py){ let best=null,bd=1e9; for(const k in W){const[q,r]=k.split(",").map(Number),[cx,cy]=hpix(q,r),d=(cx-px)**2+(cy-py)**2;if(d<bd){bd=d;best=k;}}
+  if(best&&bd<(size*1.1)**2){ const m=W[best]; const take=Math.min(20,m.amount); if(take>0){
+    const ex=inv.find(it=>it.name===m.name&&Math.abs(it.vec[E]-m.vec[E])<.05);
+    if(ex)ex.amt+=take; else inv.push({name:m.name,vec:m.vec.slice(),amt:take});
+    m.amount-=take; if(m.amount<=.5)delete W[best]; renderInv(); } } }
+cv.addEventListener("pointerdown",e=>{const r=cv.getBoundingClientRect();pickHex(e.clientX-r.left,e.clientY-r.top);});
+document.getElementById("combine").onclick=combine;
+document.getElementById("pause").onclick=e=>{paused=!paused;e.target.textContent=paused?"▶":"⏸";};
+document.getElementById("reset").onclick=()=>{inv=[];sel=[];build();resize();renderInv();};
 
-build(); resize(); loop();
+build();resize();renderInv();loop();
 </script>
 </body>
 </html>
